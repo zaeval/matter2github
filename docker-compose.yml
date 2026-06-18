@@ -1,0 +1,12 @@
+services:
+  mattermost-github-issue-api:
+    build: .
+    container_name: mattermost-github-issue-api
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "${PORT:-3000}:3000"
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
