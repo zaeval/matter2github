@@ -1,5 +1,8 @@
 .env
+.env.*
+!.env.example
 data/
 logs/
 node_modules/
 npm-debug.log*
+.git/

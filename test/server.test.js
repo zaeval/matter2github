@@ -26,7 +26,7 @@ const baseConfig = {
   issueTitlePrefix: "",
   defaultLabels: ["mattermost", "bug"],
   defaultAssignees: [],
-  mattermostBaseUrl: "http://10.1.19.93:8065",
+  mattermostBaseUrl: "https://mattermost.example.com",
   mattermostToken: "secret",
   mattermostAllowedChannels: ["d612a0b7bc697dacc5aaef593d6d422e"],
 };
@@ -52,7 +52,7 @@ test("buildIssueInput maps first line to title, rest to body, and default labels
   assert.equal(result.ok, true);
   assert.equal(result.issue.title, "Login button returns 500");
   assert.match(result.issue.body, /Steps:/);
-  assert.match(result.issue.body, /http:\/\/10\.1\.19\.93:8065\/sw\/pl\/abc123/);
+  assert.match(result.issue.body, /https:\/\/mattermost\.example\.com\/sw\/pl\/abc123/);
   assert.deepEqual(result.issue.labels, ["mattermost", "bug"]);
 });
 
@@ -149,8 +149,8 @@ test("github mode supports direct and proxy options", () => {
     "https://api.github.com",
   );
   assert.equal(
-    getGitHubApiBaseUrl("proxy", { GH_PROXY_URL: "https://ucut.in/proxy/gh" }),
-    "https://ucut.in/proxy/gh/api/v3",
+    getGitHubApiBaseUrl("proxy", { GH_PROXY_URL: "https://github-proxy.example.com" }),
+    "https://github-proxy.example.com/api/v3",
   );
 });
 

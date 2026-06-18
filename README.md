@@ -33,31 +33,31 @@ Mattermost outgoing webhook
 The callback URL for Mattermost is:
 
 ```text
-http://10.1.19.57:3000/hooks/mattermost/github-issue
+http://<server-host>:3000/hooks/mattermost/github-issue
 ```
 
 The approval page is:
 
 ```text
-http://10.1.19.57:3000/queue
+http://<server-host>:3000/queue
 ```
 
 On the first run, create the first admin account:
 
 ```text
-http://10.1.19.57:3000/setup
+http://<server-host>:3000/setup
 ```
 
 After setup, sign in:
 
 ```text
-http://10.1.19.57:3000/login
+http://<server-host>:3000/login
 ```
 
 Admins can add reviewer/admin users and manage GitHub token settings:
 
 ```text
-http://10.1.19.57:3000/admin
+http://<server-host>:3000/admin
 ```
 
 ## Runtime Endpoints
@@ -83,7 +83,7 @@ POST /hooks/mattermost/github-issue
 
 ## GitHub Modes
 
-The server supports both direct GitHub API access and the `ucut.in` GitHub
+The server supports both direct GitHub API access and a GitHub-compatible
 proxy. Admin users can update these values from `/admin`; saved values are
 stored in `data/settings.json` and override `.env`.
 
@@ -98,7 +98,7 @@ Proxy GitHub:
 
 ```env
 GITHUB_MODE=proxy
-GITHUB_API_BASE_URL=https://ucut.in/proxy/gh/api/v3
+GITHUB_API_BASE_URL=https://github-proxy.example.com/api/v3
 GH_PROXY_TOKEN=...
 GITHUB_TOKEN=...
 ```

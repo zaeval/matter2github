@@ -8,7 +8,7 @@ queue page, GitHub direct/proxy modes, attachments, and Docker deployment.
 Use this callback URL:
 
 ```text
-http://10.1.19.57:3000/hooks/mattermost/github-issue
+http://<server-host>:3000/hooks/mattermost/github-issue
 ```
 
 Recommended Mattermost settings:
@@ -17,7 +17,7 @@ Recommended Mattermost settings:
 Title: GitHub Issue Queue
 Content Type: application/json
 Trigger Words: !issue
-Callback URLs: http://10.1.19.57:3000/hooks/mattermost/github-issue
+Callback URLs: http://<server-host>:3000/hooks/mattermost/github-issue
 ```
 
 Messages should start with the trigger word:
@@ -34,25 +34,25 @@ Queue mode is enabled by default:
 ```env
 QUEUE_ENABLED=true
 QUEUE_FILE=data/queue.json
-PUBLIC_BASE_URL=http://10.1.19.57:3000
+PUBLIC_BASE_URL=http://<server-host>:3000
 ```
 
 On first run, create the first admin:
 
 ```text
-http://10.1.19.57:3000/setup
+http://<server-host>:3000/setup
 ```
 
 Then sign in:
 
 ```text
-http://10.1.19.57:3000/login
+http://<server-host>:3000/login
 ```
 
 Open the approval page after login:
 
 ```text
-http://10.1.19.57:3000/queue
+http://<server-host>:3000/queue
 ```
 
 Session and local account storage:
@@ -73,9 +73,9 @@ Use this when the server can reach `https://api.github.com` directly:
 
 ```env
 GITHUB_MODE=direct
-GITHUB_TOKEN=github_pat_or_ghp_token
-GITHUB_OWNER=Software-Development-Soldier
-GITHUB_REPO=arvis-front-2.0
+GITHUB_TOKEN=replace_with_github_token
+GITHUB_OWNER=your-github-owner
+GITHUB_REPO=your-github-repo
 ```
 
 In direct mode, `GITHUB_API_BASE_URL`, `GH_PROXY_URL`, and `GH_PROXY_TOKEN` are
@@ -84,21 +84,21 @@ ignored.
 Admins can also switch to direct mode from:
 
 ```text
-http://10.1.19.57:3000/admin
+http://<server-host>:3000/admin
 ```
 
 ## 4. GitHub Proxy Mode
 
-Use this when direct access to GitHub is blocked and the `ucut.in` proxy should
-be used:
+Use this when direct access to GitHub is blocked and a GitHub-compatible proxy
+should be used:
 
 ```env
 GITHUB_MODE=proxy
-GITHUB_API_BASE_URL=https://ucut.in/proxy/gh/api/v3
+GITHUB_API_BASE_URL=https://github-proxy.example.com/api/v3
 GH_PROXY_TOKEN=proxy_token
-GITHUB_TOKEN=github_pat_or_ghp_token
-GITHUB_OWNER=Software-Development-Soldier
-GITHUB_REPO=arvis-front-2.0
+GITHUB_TOKEN=replace_with_github_token
+GITHUB_OWNER=your-github-owner
+GITHUB_REPO=your-github-repo
 ```
 
 The server sends the proxy token as both:
@@ -217,7 +217,7 @@ Start-ScheduledTask -TaskName MattermostGithubIssueCallback
 ```powershell
 npm.cmd test
 curl http://127.0.0.1:3000/health
-curl http://10.1.19.57:3000/health
+curl http://<server-host>:3000/health
 ```
 
 Then send a Mattermost message:
@@ -229,7 +229,7 @@ Then send a Mattermost message:
 Open:
 
 ```text
-http://10.1.19.57:3000/queue
+http://<server-host>:3000/queue
 ```
 
 Approve the item and confirm the GitHub issue link appears in the approved row.

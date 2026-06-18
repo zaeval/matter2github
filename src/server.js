@@ -24,8 +24,8 @@ const CONFIG = {
   approvalToken: process.env.APPROVAL_TOKEN || "",
   githubMode: GITHUB_MODE,
   githubToken: process.env.GITHUB_TOKEN || "",
-  githubOwner: process.env.GITHUB_OWNER || "Software-Development-Soldier",
-  githubRepo: process.env.GITHUB_REPO || "arvis-front-2.0",
+  githubOwner: process.env.GITHUB_OWNER || "your-github-owner",
+  githubRepo: process.env.GITHUB_REPO || "your-github-repo",
   githubApiBaseUrl: getGitHubApiBaseUrl(GITHUB_MODE),
   ghProxyToken: process.env.GH_PROXY_TOKEN || process.env.GITHUB_PROXY_TOKEN || "",
   mattermostToken: process.env.MATTERMOST_TOKEN || "",
@@ -151,7 +151,7 @@ function getGitHubApiBaseUrl(mode = getGitHubMode(), env = process.env) {
     return proxyUrl.endsWith("/api/v3") ? proxyUrl : `${proxyUrl}/api/v3`;
   }
 
-  return "https://ucut.in/proxy/gh/api/v3";
+  return "https://github-proxy.example.com/api/v3";
 }
 
 function createServer(config = CONFIG) {
@@ -1118,7 +1118,7 @@ function updateGitHubSettings(body, config) {
   if (next.githubMode === "proxy") {
     next.githubApiBaseUrl =
       trimTrailingSlash(String(body.githubApiBaseUrl || "").trim()) ||
-      "https://ucut.in/proxy/gh/api/v3";
+      "https://github-proxy.example.com/api/v3";
   } else {
     next.githubApiBaseUrl = "";
   }
@@ -2045,7 +2045,7 @@ function renderAdminPage(config, currentUser) {
           </div>
           <div>
             <label for="githubApiBaseUrl">Proxy API base URL</label>
-            <input id="githubApiBaseUrl" placeholder="https://ucut.in/proxy/gh/api/v3">
+            <input id="githubApiBaseUrl" placeholder="https://github-proxy.example.com/api/v3">
           </div>
           <div>
             <label for="githubOwner">GitHub owner</label>
