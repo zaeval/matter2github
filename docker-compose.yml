@@ -6,7 +6,9 @@ services:
     env_file:
       - .env
     ports:
-      - "${PORT:-3000}:3000"
+      # The app listens on $PORT inside the container (see src/server.js),
+      # so publish host:container on the same port to keep them in sync.
+      - "${PORT:-3000}:${PORT:-3000}"
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs
