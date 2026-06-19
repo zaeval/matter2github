@@ -33,6 +33,7 @@ const CONFIG = {
     process.env.MATTERMOST_ACCESS_TOKEN || process.env.MATTERMOST_BOT_TOKEN || "",
   mattermostAllowedChannels: splitCsv(process.env.MATTERMOST_ALLOWED_CHANNELS),
   mattermostBaseUrl: trimTrailingSlash(process.env.MATTERMOST_BASE_URL || ""),
+  mattermostWebhookUrl: (process.env.MATTERMOST_WEBHOOK_URL || "").trim(),
   triggerWords: splitCsv(process.env.TRIGGER_WORDS || "!issue,#issue"),
   defaultLabels: splitCsv(process.env.DEFAULT_LABELS || "mattermost,bug"),
   defaultAssignees: splitCsv(process.env.DEFAULT_ASSIGNEES),
@@ -270,7 +271,7 @@ function createServer(config = CONFIG) {
         }
 
         const body = await parseRequestBody(req, config.bodyLimitBytes);
-        const result = denyQueueItem(denyMatch[1], body, config, currentUser);
+        const result = await denyQueueItem(denyMatch[1], body, config, currentUser);
         return sendJson(res, result.statusCode, result.body);
       }
 
@@ -651,6 +652,7 @@ async function approveQueueItem(id, body, config, actor = null) {
       issueUrl: issue.html_url,
       title: item.issue.title,
     });
+    await notifyMattermost(config, buildReviewNotification(item, "approved"));
     return { statusCode: 200, body: { ok: true, item: toPublicQueueItem(item) } };
   } catch (error) {
     item.status = "failed";
@@ -663,6 +665,7 @@ async function approveQueueItem(id, body, config, actor = null) {
       title: item.issue.title,
       error: item.error,
     });
+    await notifyMattermost(config, buildReviewNotification(item, "failed"));
     return {
       statusCode: error.statusCode || 500,
       body: { ok: false, error: item.error, item: toPublicQueueItem(item) },
@@ -670,7 +673,7 @@ async function approveQueueItem(id, body, config, actor = null) {
   }
 }
 
-function denyQueueItem(id, body, config, actor = null) {
+async function denyQueueItem(id, body, config, actor = null) {
   const queue = readQueue(config);
   const item = queue.items.find((candidate) => candidate.id === id);
   if (!item) {
@@ -702,6 +705,7 @@ function denyQueueItem(id, body, config, actor = null) {
     title: item.issue.title,
     reason: item.review.reason,
   });
+  await notifyMattermost(config, buildReviewNotification(item, "denied"));
   return { statusCode: 200, body: { ok: true, item: toPublicQueueItem(item) } };
 }
 
@@ -1630,8 +1634,81 @@ function escapeMarkdownAltText(value) {
 }
 
 function toShortErrorMessage(error) {
-  const message = error && error.message ? error.message : String(error);
+  let message = error && error.message ? error.message : String(error);
+  // Network failures from fetch() surface as a generic "fetch failed"; the
+  // actionable detail (ENOTFOUND, ECONNREFUSED, ETIMEDOUT, TLS cert errors)
+  // lives on error.cause. Surface it so the reason is diagnosable.
+  const cause = error && error.cause;
+  if (cause) {
+    const detail = cause.code || cause.message;
+    if (detail && !message.includes(detail)) {
+      message = `${message} (${detail})`;
+    }
+  }
   return message.length > 240 ? `${message.slice(0, 237)}...` : message;
+}
+
+// Builds the Mattermost message for an approve/deny/fail outcome. Pure and
+// exported so it can be unit-tested without any network access.
+function buildReviewNotification(item, outcome) {
+  const requestLog = (item && item.requestLog) || {};
+  const review = (item && item.review) || {};
+  const title = (item && item.issue && item.issue.title) || "(제목 없음)";
+  const reviewer = review.reviewer ? `@${review.reviewer}` : "관리자";
+  const requester = requestLog.userName ? `@${requestLog.userName} ` : "";
+
+  let text;
+  if (outcome === "approved") {
+    const url = item && item.githubIssue ? item.githubIssue.htmlUrl : "";
+    const number = item && item.githubIssue ? item.githubIssue.number : "";
+    const ref = url ? `#${number} ${url}` : `#${number}`;
+    text = `${requester}✅ **이슈 등록 완료**: ${title}\n${ref}\n승인: ${reviewer}`;
+  } else if (outcome === "denied") {
+    const reason = review.reason ? review.reason : "(사유 미기재)";
+    text = `${requester}🚫 **이슈 반려**: ${title}\n사유: ${reason}\n반려: ${reviewer}`;
+  } else {
+    const reason = (item && item.error) || "알 수 없는 오류";
+    text = `${requester}❌ **이슈 등록 실패**: ${title}\n오류: ${reason}\n시도: ${reviewer}`;
+  }
+
+  return { text, channel: requestLog.channelName || "" };
+}
+
+// Posts a message to a Mattermost incoming webhook. Guaranteed to never throw:
+// a notification failure must not affect the approve/deny result (in particular
+// it must not let the approve() catch block overwrite a created issue as failed).
+async function notifyMattermost(config, notification) {
+  try {
+    if (!config.mattermostWebhookUrl || !notification || !notification.text) {
+      return;
+    }
+
+    const payload = { text: notification.text, username: "GitHub Issue Bot" };
+    if (notification.channel) {
+      payload.channel = notification.channel;
+    }
+
+    const response = await fetch(config.mattermostWebhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(8000),
+    });
+
+    if (!response.ok) {
+      const responseText = await response.text().catch(() => "");
+      writeAuditLog(config, {
+        event: "mattermost_notify_failed",
+        status: response.status,
+        reason: responseText.slice(0, 240),
+      });
+    }
+  } catch (error) {
+    writeAuditLog(config, {
+      event: "mattermost_notify_failed",
+      reason: toShortErrorMessage(error),
+    });
+  }
 }
 
 async function createGitHubIssue(issue, config) {
@@ -2233,6 +2310,7 @@ module.exports = {
   buildAttachmentRepoPath,
   buildAttachmentSection,
   buildIssueInput,
+  buildReviewNotification,
   createQueueItem,
   createServer,
   denyQueueItem,
@@ -2241,9 +2319,11 @@ module.exports = {
   getGitHubApiBaseUrl,
   getGitHubMode,
   listQueueItems,
+  notifyMattermost,
   readQueue,
   sanitizeAttachmentFileName,
   sanitizePayloadForQueue,
   stripLeadingTriggerWord,
+  toShortErrorMessage,
   verifyMattermostPayload,
 };
