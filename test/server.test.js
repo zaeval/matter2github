@@ -215,7 +215,8 @@ test("buildReviewNotification renders approve, deny, and fail messages with chan
   );
   assert.equal(approved.channel, "front");
   assert.match(approved.text, /이슈 등록 완료/);
-  assert.match(approved.text, /https:\/\/github\.com\/o\/r\/issues\/12/);
+  // Rendered as a markdown hyperlink, not a bare URL.
+  assert.match(approved.text, /\[issue 12\]\(https:\/\/github\.com\/o\/r\/issues\/12\)/);
   assert.match(approved.text, /@seungui/);
 
   const denied = buildReviewNotification(

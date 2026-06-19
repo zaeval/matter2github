@@ -1661,7 +1661,7 @@ function buildReviewNotification(item, outcome) {
   if (outcome === "approved") {
     const url = item && item.githubIssue ? item.githubIssue.htmlUrl : "";
     const number = item && item.githubIssue ? item.githubIssue.number : "";
-    const ref = url ? `#${number} ${url}` : `#${number}`;
+    const ref = url ? `[issue ${number}](${url})` : `issue ${number}`;
     text = `${requester}✅ **이슈 등록 완료**: ${title}\n${ref}\n승인: ${reviewer}`;
   } else if (outcome === "denied") {
     const reason = review.reason ? review.reason : "(사유 미기재)";
