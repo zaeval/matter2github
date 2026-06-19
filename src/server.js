@@ -386,7 +386,7 @@ async function handleMattermostWebhook(req, res, config) {
 
     return sendJson(res, 200, {
       ok: true,
-      text: `Queued for approval: ${item.issue.title}${reviewUrl ? `\nReview: ${reviewUrl}` : ""}`,
+      text: `Queued for approval: ${item.issue.title}${reviewUrl ? `\n[Review](${reviewUrl})` : ""}`,
     });
   }
 
@@ -401,7 +401,7 @@ async function handleMattermostWebhook(req, res, config) {
 
   return sendJson(res, 200, {
     ok: true,
-    text: `GitHub issue created: #${issue.number} ${issue.html_url}`,
+    text: `GitHub issue created: [#${issue.number}](${issue.html_url})`,
   });
 }
 
