@@ -8,16 +8,19 @@ const {
   buildAttachmentRepoPath,
   buildAttachmentSection,
   buildIssueInput,
+  buildReviewNotification,
   createQueueItem,
   extractPayloadFileIds,
   formatTitle,
   getGitHubApiBaseUrl,
   getGitHubMode,
   listQueueItems,
+  notifyMattermost,
   readQueue,
   sanitizeAttachmentFileName,
   sanitizePayloadForQueue,
   stripLeadingTriggerWord,
+  toShortErrorMessage,
   verifyMattermostPayload,
 } = require("../src/server");
 
@@ -188,4 +191,88 @@ test("queue stores sanitized pending items", () => {
   assert.equal(readQueue(config).items[0].payload.token, undefined);
   assert.equal(listQueueItems("pending", config).length, 1);
   assert.equal(sanitizePayloadForQueue({ token: "secret", text: "hello" }).token, undefined);
+});
+
+test("toShortErrorMessage surfaces the underlying fetch cause code", () => {
+  const error = new TypeError("fetch failed");
+  error.cause = { code: "ENOTFOUND" };
+  assert.equal(toShortErrorMessage(error), "fetch failed (ENOTFOUND)");
+
+  // Does not duplicate detail that is already part of the message.
+  const plain = new Error("GitHub API error 401: bad token");
+  assert.equal(toShortErrorMessage(plain), "GitHub API error 401: bad token");
+});
+
+test("buildReviewNotification renders approve, deny, and fail messages with channel", () => {
+  const base = {
+    issue: { title: "case 37" },
+    requestLog: { channelName: "front", userName: "seungui" },
+  };
+
+  const approved = buildReviewNotification(
+    { ...base, githubIssue: { number: 12, htmlUrl: "https://github.com/o/r/issues/12" }, review: { reviewer: "zaeval" } },
+    "approved",
+  );
+  assert.equal(approved.channel, "front");
+  assert.match(approved.text, /이슈 등록 완료/);
+  // Rendered as a markdown hyperlink, not a bare URL.
+  assert.match(approved.text, /\[issue 12\]\(https:\/\/github\.com\/o\/r\/issues\/12\)/);
+  assert.match(approved.text, /@seungui/);
+
+  const denied = buildReviewNotification(
+    { ...base, review: { reviewer: "zaeval", reason: "중복 이슈" } },
+    "denied",
+  );
+  assert.match(denied.text, /이슈 반려/);
+  assert.match(denied.text, /중복 이슈/);
+
+  const failed = buildReviewNotification(
+    { ...base, error: "fetch failed (ENOTFOUND)", review: { reviewer: "zaeval" } },
+    "failed",
+  );
+  assert.match(failed.text, /이슈 등록 실패/);
+  assert.match(failed.text, /ENOTFOUND/);
+});
+
+test("notifyMattermost posts the expected body and never throws on failure", async () => {
+  const originalFetch = global.fetch;
+  try {
+    // Captures the outgoing request.
+    let captured = null;
+    global.fetch = async (url, options) => {
+      captured = { url, options };
+      return { ok: true, status: 200, text: async () => "" };
+    };
+    await notifyMattermost(
+      { mattermostWebhookUrl: "http://hook.example/hooks/abc" },
+      { text: "hello", channel: "front" },
+    );
+    assert.equal(captured.url, "http://hook.example/hooks/abc");
+    const sent = JSON.parse(captured.options.body);
+    assert.equal(sent.text, "hello");
+    assert.equal(sent.channel, "front");
+
+    // A rejecting fetch must be swallowed (no throw), so it can never flip an
+    // approved item to failed.
+    global.fetch = async () => {
+      throw new TypeError("fetch failed");
+    };
+    await assert.doesNotReject(
+      notifyMattermost(
+        { mattermostWebhookUrl: "http://hook.example/hooks/abc", auditLogPath: path.join(os.tmpdir(), "notify-audit.log") },
+        { text: "hello" },
+      ),
+    );
+
+    // Disabled when no webhook URL is configured (no fetch attempted).
+    let called = false;
+    global.fetch = async () => {
+      called = true;
+      return { ok: true, status: 200, text: async () => "" };
+    };
+    await notifyMattermost({ mattermostWebhookUrl: "" }, { text: "hello" });
+    assert.equal(called, false);
+  } finally {
+    global.fetch = originalFetch;
+  }
 });

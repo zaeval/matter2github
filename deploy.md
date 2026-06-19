@@ -140,6 +140,26 @@ MATTERMOST_ACCESS_TOKEN=mattermost_personal_or_bot_access_token
 `MATTERMOST_ACCESS_TOKEN` must be able to read the channel where files are
 posted.
 
+Result notifications (approve / deny / failure) are posted back to Mattermost
+through an incoming webhook:
+
+```env
+MATTERMOST_WEBHOOK_URL=http://<mattermost-host>:8065/hooks/xxxxxxxxxxxxxxxxxx
+```
+
+When set, after a reviewer approves, denies, or an approval fails, the server
+posts a message to the channel the original `!issue` message came from
+(`channel_name` from the outgoing webhook). Leave it empty to disable. Notes:
+
+- The target Mattermost incoming webhook must have "channel override" enabled to
+  post into the original channel; otherwise it posts to the webhook's default
+  channel.
+- Incoming webhooks cannot reply inside a thread (no `root_id`); messages are
+  posted as new channel messages.
+- Failure notifications include the underlying cause (for example
+  `fetch failed (ENOTFOUND)`), which is useful for diagnosing GitHub/proxy
+  connectivity problems.
+
 ## 6. Attachments
 
 When a queued item is approved, attachments are copied from Mattermost into the
