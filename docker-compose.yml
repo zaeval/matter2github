@@ -12,3 +12,8 @@ services:
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs
+      # Drop a TLS-intercepting / private CA here and point NODE_EXTRA_CA_CERTS
+      # at it in .env (e.g. NODE_EXTRA_CA_CERTS=/certs/proxy-ca.pem) when the
+      # GitHub proxy chain is signed by a CA Node does not trust by default
+      # (symptom: "fetch failed (SELF_SIGNED_CERT_IN_CHAIN)"). See deploy.md.
+      - ./certs:/certs:ro

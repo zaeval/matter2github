@@ -253,3 +253,49 @@ http://<server-host>:3000/queue
 ```
 
 Approve the item and confirm the GitHub issue link appears in the approved row.
+
+## 11. Troubleshooting GitHub/Proxy Connectivity ("fetch failed")
+
+When approval fails, the queue row and the Mattermost notification show the
+underlying cause in parentheses. Use it to pinpoint the problem:
+
+| Message | Meaning | Fix |
+| --- | --- | --- |
+| `fetch failed (ENOTFOUND)` | The server cannot resolve the proxy/GitHub host | Fix DNS on the host/container |
+| `fetch failed (ECONNREFUSED)` / `(ETIMEDOUT)` | A firewall or routing rule blocks egress | Allow outbound HTTPS to the proxy host |
+| `fetch failed (SELF_SIGNED_CERT_IN_CHAIN)` / `(UNABLE_TO_VERIFY_LEAF_SIGNATURE)` | The TLS chain is signed by a private or TLS-intercepting CA that Node does not trust | Trust that CA (below) |
+
+### Trusting a private / TLS-intercepting CA
+
+This is common behind a corporate firewall that re-signs HTTPS traffic. Export
+the CA the server actually sees and have the container trust it.
+
+1. On the server, dump the certificate chain the proxy host presents and keep
+   the CA certificate(s):
+
+   ```bash
+   openssl s_client -connect ucut.in:443 -showcerts </dev/null 2>/dev/null \
+     | sed -n '/BEGIN CERTIFICATE/,/END CERTIFICATE/p' > certs/proxy-ca.pem
+   ```
+
+   (Prefer the official root CA from your IT team when available.)
+
+2. Point Node at it in `.env` (the path is the in-container path; `./certs` is
+   mounted to `/certs` by `docker-compose.yml`):
+
+   ```env
+   NODE_EXTRA_CA_CERTS=/certs/proxy-ca.pem
+   ```
+
+3. Recreate the container:
+
+   ```powershell
+   docker compose up -d
+   ```
+
+`NODE_EXTRA_CA_CERTS` is additive and works alongside the image's
+`--use-system-ca`, so public certificates keep working too.
+
+> Insecure last resort: setting `NODE_TLS_REJECT_UNAUTHORIZED=0` disables TLS
+> verification entirely and exposes traffic to interception. Do not use it in
+> production; trust the CA instead.
